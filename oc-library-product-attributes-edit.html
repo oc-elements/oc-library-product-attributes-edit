@@ -1,34 +1,166 @@
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../paper-material/paper-material.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../paper-tooltip/paper-tooltip.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-toast/paper-toast.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../iron-icons/iron-icons.html">
+
+<link rel="import" href="../oc-product-attribute-api/oc-product-attribute-api.html">
+<link rel="import" href="../oc-product-library-api/oc-product-library-api.html">
+<link rel="import" href="../oc-product-attributes-edit/oc-product-attributes-edit.html">
 
 <!--
 `oc-library-product-attributes-edit`
 Element to edit library product attributes on the Ordercloud platform
 
-@demo demo/index.html 
+@demo demo/index.html
 -->
 
 <dom-module id="oc-library-product-attributes-edit">
+  <style>
+    :host {
+      display: block;
+      margin: 10px 10px 10px 0;
+      padding-bottom: 10px;
+    }
+
+  </style>
+
   <template>
-    <style>
-      :host {
-        display: block;
-      }
-    </style>
-    <h2>Hello [[prop1]]</h2>
+
+    <oc-product-attributes-edit
+            product-attributes="[[productAttributes]]"
+            available-attributes="[[availableAttributes]]"
+    ></oc-product-attributes-edit>
+
+
+    <paper-toast id="toast"></paper-toast>
+
+    <oc-product-library-api  id="prodApi" ></oc-product-library-api>
+
   </template>
 
   <script>
     Polymer({
 
       is: 'oc-library-product-attributes-edit',
+      behaviors: [OC.Behaviours.ApiConsumer],
 
       properties: {
-        prop1: {
-          type: String,
-          value: 'oc-library-product-attributes-edit',
+        productId : {
+          type: Number,
+          computed: "_computeProductId(product)"
         },
+        loaded: Boolean,
+        organisationId: Number,
+        product : Object,
+        productAttributes : {
+          type: Array,
+          value: function(){
+            return [];
+          }
+        },
+        availableAttributes : {
+          type: Array,
+          value: function() {
+            return [];
+          }
+        },
+        allAttributes : Array
       },
 
-    });
+      observers: [
+        "_computeAttrs(allAttributes, product.attributes)",
+        "refresh(product)",
+
+      ],
+
+      listeners : {
+        'attribute-add' : '_addAttribute',
+        'attribute-remove' : '_removeAttribute',
+        'attribute-save' : '_saveAttributes',
+      },
+
+      refresh : function(){
+
+        if (!this.product || this.loaded) {
+          return
+        }
+
+        this.loading = true;
+
+        this.getAllAttributes();
+
+        this.loaded = true;
+
+      },
+
+      _computeProductId : function(product){
+        return product.id;
+      },
+
+
+      getAllAttributes : function(){
+        this.$.prodApi.getAttributes()
+                .then(this._setPropertyResponseResults.bind(this, 'allAttributes'))
+                .catch(this.fire.bind(this, 'options_error', 'Could not load attributes'))
+                .finally(this.set.bind(this, 'loading', false));
+      },
+
+      _computeAttrs : function(allAttributes, productAttributes){
+
+        allAttributes.forEach(function(attribute){
+          attribute.value = attribute.value || '';
+
+          var isProductAttr = false;
+
+          productAttributes.forEach(function(productAttr){
+            if(attribute.name === productAttr.name) {
+              isProductAttr = true;
+              attribute.value = productAttr.value;
+              this.push('productAttributes', attribute);
+            }
+          }.bind(this));
+
+          if(!isProductAttr){
+            this.push('availableAttributes', attribute);
+          }
+
+        }.bind(this));
+
+
+      },
+
+      _addAttribute : function(e) {
+        var idx = this.availableAttributes.findIndex(function(obj){ return (obj.id === e.detail.id)});
+
+        this.push('productAttributes', e.detail);
+        this.splice('availableAttributes', idx, 1);
+      },
+
+      _removeAttribute : function(e) {
+        var idx = this.productAttributes.findIndex(function(obj){ return (obj.id === e.detail.id)});
+
+        this.push('availableAttributes', e.detail);
+        this.splice('productAttributes', idx, 1);
+      },
+
+      _saveAttributes : function(e){
+        this.loading = true;
+        var attrs = e.detail.map(function(obj) { return {name: obj.name, value: obj.value} });
+
+        this.$.prodApi.updateProductAttributes(this.productId, attrs)
+                .catch(this.$.toast.show.bind(this.$.toast, 'Failed to save attributes'))
+                .finally(this.set.bind(this, 'loading', false));
+      }
+
+
+    })();
   </script>
 </dom-module>
