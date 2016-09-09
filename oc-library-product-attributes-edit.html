@@ -11,7 +11,6 @@
 <link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../iron-icons/iron-icons.html">
 
-<link rel="import" href="../oc-product-attribute-api/oc-product-attribute-api.html">
 <link rel="import" href="../oc-product-library-api/oc-product-library-api.html">
 <link rel="import" href="../oc-product-attributes-edit/oc-product-attributes-edit.html">
 
@@ -58,6 +57,10 @@ Element to edit library product attributes on the Ordercloud platform
           computed: "_computeProductId(product)"
         },
         loaded: Boolean,
+        loading: {
+          type: Boolean,
+          notify: true
+        },
         organisationId: Number,
         product : Object,
         productAttributes : {
@@ -107,7 +110,8 @@ Element to edit library product attributes on the Ordercloud platform
 
 
       getAllAttributes : function(){
-        this.$.prodApi.getAttributes()
+        this.loading = true;
+        this.$.prodApi.getAttributes(1,-1)
                 .then(this._setPropertyResponseResults.bind(this, 'allAttributes'))
                 .catch(this.fire.bind(this, 'options_error', 'Could not load attributes'))
                 .finally(this.set.bind(this, 'loading', false));
@@ -161,6 +165,6 @@ Element to edit library product attributes on the Ordercloud platform
       }
 
 
-    })();
+    });
   </script>
 </dom-module>
